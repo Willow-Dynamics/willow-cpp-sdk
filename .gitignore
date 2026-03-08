@@ -1,0 +1,49 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+test_willow
+ex01
+ex02
+ex03
+ex04
+
+# Build directories
+build/
+out/
+bin/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.sln
+*.suo
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+cmake-build-*/
+.cache/
