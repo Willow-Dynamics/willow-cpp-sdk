@@ -23,7 +23,7 @@ git add .
 
 :: 5. Commit with an automated timestamp
 echo [System] Committing deployment...
-git commit -m "Automated Deployment: Willow C++ Edge SDK v5.2.0"
+git commit -m "v5.2.1 - Math kernel optimizations. - Dynamic zone masking added for hand tracking fidelity improvements."
 
 :: 6. Enforce branch name
 git branch -M %BRANCH%

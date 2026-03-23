@@ -298,51 +298,75 @@
          float sim_t2 = 0.0f;
          float sim_t1 = 0.0f;
          float sim_t0 = 0.0f;
-         
+        
          int length_t1 = 0;
          int current_frame = 0;
-         const float VISIBILITY_THRESHOLD = 0.5f;
- 
+
          std::vector<DetectionResult> confirmed_detections;
  
-         float calculate_torso_length(const Skeleton& skel) const {
-             auto s_mid = Point3D{ (skel[11].x + skel[12].x)/2.0f, (skel[11].y + skel[12].y)/2.0f, (skel[11].z + skel[12].z)/2.0f, 1.0f };
-             auto h_mid = Point3D{ (skel[23].x + skel[24].x)/2.0f, (skel[23].y + skel[24].y)/2.0f, (skel[23].z + skel[24].z)/2.0f, 1.0f };
-             float dx = s_mid.x - h_mid.x;
-             float dy = s_mid.y - h_mid.y;
-             float dz = s_mid.z - h_mid.z;
-             float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-             return (dist < 0.01f) ? 0.01f : dist;
-         }
- 
-         void extract_rdm(const Skeleton& skel, std::vector<float>& out_rdm) const {
-             out_rdm.clear(); // Resets size to 0 but keeps capacity intact
-             float scale = 1.0f;
-             
-             if (model.zone_mask & TORSO) {
-                 scale = calculate_torso_length(skel);
-             }
- 
-             for (size_t i = 0; i < model.active_indices.size(); ++i) {
-                 for (size_t j = i + 1; j < model.active_indices.size(); ++j) {
-                     auto p1 = skel[model.active_indices[i]];
-                     auto p2 = skel[model.active_indices[j]];
-                     
-                     // Visibility Masking. Prevents occluded sensors 
-                     // from injecting massive false distances into the RDM.
-                     if (p1.visibility < VISIBILITY_THRESHOLD || p2.visibility < VISIBILITY_THRESHOLD ||
-                        (p1.x == 0.0f && p1.y == 0.0f && p1.z == 0.0f) ||
-                        (p2.x == 0.0f && p2.y == 0.0f && p2.z == 0.0f)) {
-                         out_rdm.push_back(0.0f);
-                     } else {
-                         float dx = p1.x - p2.x;
-                         float dy = p1.y - p2.y;
-                         float dz = p1.z - p2.z;
-                         out_rdm.push_back(std::sqrt(dx*dx + dy*dy + dz*dz) / scale);
-                     }
-                 }
-             }
-         }
+         // Scale fallbacks and multiplicative confidence thresholding
+        float calculate_scale(const Skeleton& skel) const {
+            float scale = 1.0f;
+            if (model.zone_mask & TORSO) {
+                float dx = skel[11].x - skel[23].x;
+                float dy = skel[11].y - skel[23].y;
+                float dz = skel[11].z - skel[23].z;
+                scale = std::sqrt(dx*dx + dy*dy + dz*dz);
+            } else if (model.zone_mask & LEGS) {
+                float dx = skel[25].x - skel[27].x;
+                float dy = skel[25].y - skel[27].y;
+                float dz = skel[25].z - skel[27].z;
+                scale = std::sqrt(dx*dx + dy*dy + dz*dz);
+            } else if (model.zone_mask & ARMS) {
+                float dx = skel[13].x - skel[15].x;
+                float dy = skel[13].y - skel[15].y;
+                float dz = skel[13].z - skel[15].z;
+                scale = std::sqrt(dx*dx + dy*dy + dz*dz);
+            } else if (model.zone_mask & HANDS) {
+                float dx = skel[33].x - skel[42].x;
+                float dy = skel[33].y - skel[42].y;
+                float dz = skel[33].z - skel[42].z;
+                scale = std::sqrt(dx*dx + dy*dy + dz*dz);
+            } else if (model.zone_mask & FEET) {
+                float dx = skel[29].x - skel[31].x;
+                float dy = skel[29].y - skel[31].y;
+                float dz = skel[29].z - skel[31].z;
+                scale = std::sqrt(dx*dx + dy*dy + dz*dz);
+            } else if (model.zone_mask & HEAD) {
+                float dx = skel[1].x - skel[4].x;
+                float dy = skel[1].y - skel[4].y;
+                float dz = skel[1].z - skel[4].z;
+                scale = std::sqrt(dx*dx + dy*dy + dz*dz);
+            }
+            return (scale < 0.01f) ? 0.01f : scale;
+        }
+
+        void extract_rdm(const Skeleton& skel, std::vector<float>& out_rdm) const {
+            out_rdm.clear(); // Resets size to 0 but keeps capacity intact
+            float scale = calculate_scale(skel);
+            const float CONF_THRESH_SQ = 0.25f; // Aligned with Python (0.5 * 0.5)
+
+            for (size_t i = 0; i < model.active_indices.size(); ++i) {
+                for (size_t j = i + 1; j < model.active_indices.size(); ++j) {
+                    auto p1 = skel[model.active_indices[i]];
+                    auto p2 = skel[model.active_indices[j]];
+                    
+                    // Visibility Masking. Aligned exactly with Python Multiplicative Logic
+                    float pair_conf = p1.visibility * p2.visibility;
+                    
+                    if (pair_conf < CONF_THRESH_SQ ||
+                       (p1.x == 0.0f && p1.y == 0.0f && p1.z == 0.0f) ||
+                       (p2.x == 0.0f && p2.y == 0.0f && p2.z == 0.0f)) {
+                        out_rdm.push_back(0.0f);
+                    } else {
+                        float dx = p1.x - p2.x;
+                        float dy = p1.y - p2.y;
+                        float dz = p1.z - p2.z;
+                        out_rdm.push_back(std::sqrt(dx*dx + dy*dy + dz*dz) / scale);
+                    }
+                }
+            }
+        }
  
      public:
          Detector(const Model& m) : model(m) {
@@ -367,30 +391,51 @@
              int M = model.signature.size();
  
              // Zero-allocation buffer reset
-             std::fill(D_curr.begin(), D_curr.end(), std::numeric_limits<float>::infinity());
-             std::fill(S_curr.begin(), S_curr.end(), 0);
- 
-             D_curr[0] = 0.0f;
-             S_curr[0] = current_frame;
- 
-             for (int j = 1; j <= M; ++j) {
-                 float dist = 0.0f;
-                 for (size_t k = 0; k < rdm_buffer.size(); ++k) {
-                     float diff = rdm_buffer[k] - model.signature[j-1][k];
-                     dist += diff * diff;
-                 }
-                 float cost = std::sqrt(dist);
- 
-                 float prev_cost;
-                 if (D_prev[j-1] <= D_prev[j] && D_prev[j-1] <= D_curr[j-1]) {
-                     prev_cost = D_prev[j-1]; S_curr[j] = S_prev[j-1];
-                 } else if (D_prev[j] <= D_curr[j-1]) {
-                     prev_cost = D_prev[j]; S_curr[j] = S_prev[j];
-                 } else {
-                     prev_cost = D_curr[j-1]; S_curr[j] = S_curr[j-1];
-                 }
-                 D_curr[j] = cost + prev_cost;
-             }
+            std::fill(D_curr.begin(), D_curr.end(), std::numeric_limits<float>::infinity());
+            std::fill(S_curr.begin(), S_curr.end(), 0);
+
+            D_curr[0] = 0.0f;
+            S_curr[0] = current_frame;
+
+            for (int j = 1; j <= M; ++j) {
+                // BEGIN FIX - Dynamic Dimensional Masking for volatile tracking data (e.g., Hands)
+                float dist = 0.0f;
+                int valid_dims = 0;
+                int total_dims = rdm_buffer.size();
+                
+                for (int k = 0; k < total_dims; ++k) {
+                    float val_test = rdm_buffer[k];
+                    float val_seed = model.signature[j-1][k];
+                    
+                    // Ignore dimensions where either the live scan or the model has missing data
+                    if (val_test != 0.0f && val_seed != 0.0f) {
+                        float diff = val_test - val_seed;
+                        dist += diff * diff;
+                        valid_dims++;
+                    }
+                }
+                
+                float cost = 999.0f; // Extreme penalty if completely occluded
+                if (valid_dims > 0) {
+                    // Normalize the distance to maintain scale compatibility with threshold_denom
+                    dist = (dist / static_cast<float>(valid_dims)) * static_cast<float>(total_dims);
+                    cost = std::sqrt(dist);
+                }
+                // END FIX
+
+                float prev_cost;
+                if (D_prev[j-1] <= D_prev[j] && D_prev[j-1] <= D_curr[j-1]) {
+                    prev_cost = D_prev[j-1]; 
+                    S_curr[j] = S_prev[j-1];
+                } else if (D_prev[j] <= D_curr[j-1]) {
+                    prev_cost = D_prev[j]; 
+                    S_curr[j] = S_prev[j];
+                } else {
+                    prev_cost = D_curr[j-1]; 
+                    S_curr[j] = S_curr[j-1];
+                }
+                D_curr[j] = cost + prev_cost;
+            }
  
              float final_cost = D_curr[M] / M;
              int length = current_frame - S_curr[M];
