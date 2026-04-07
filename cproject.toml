@@ -1,6 +1,6 @@
 [project]
 name = "willow-cpp-sdk"
-version = "5.2.0"
+version = "5.2.8"
 description = "Willow 5 Runtime: C++ Edge SDK for Zero-Shot Action Recognition"
 authors = ["Willow Dynamics <engineering@willowdynamics.com>"]
 license = "MIT"

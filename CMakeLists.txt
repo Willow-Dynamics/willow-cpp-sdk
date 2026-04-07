@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(WillowSDK VERSION 5.2.0 LANGUAGES CXX)
+project(WillowSDK VERSION 5.2.8 LANGUAGES CXX)
 
 # Declare Willow as a header-only INTERFACE library
 add_library(willow INTERFACE)
