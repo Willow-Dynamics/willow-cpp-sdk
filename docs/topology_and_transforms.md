@@ -39,6 +39,7 @@ The indices are strictly mapped as follows:
 * **30:** Right Heel
 * **31:** Left Foot Index
 * **32:** Right Foot Index
+* **75:** Tracked Object **(Physics Mode Only)** The metric XYZ centroid of the physical object interacting with the human (e.g. Ball, Tool, Chassis).
 
 ### Left Hand (MediaPipe Hand Standard)
 * **33:** Wrist

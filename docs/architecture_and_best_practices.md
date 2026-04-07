@@ -11,17 +11,15 @@ To integrate this SDK successfully, you must understand the distinction between 
 ## Part 1: Core System Architecture
 
 ### 1. The Data Contract: Sensor Agnosticism
-The Willow SDK does not contain a computer vision engine. It does not know what a camera or a pixel is. It expects an input of a 75-point `Skeleton` array (`std::vector<Point3D>`)—a 3D point cloud mapped to the Willow 75-Point Topology (which adheres to the MediaPipe standard).
+The Willow SDK does not contain a computer vision engine. It does not know what a camera or a pixel is. It expects an input of a 75 or 76-point `Skeleton` array (`std::vector<Point3D>`)—a 3D point cloud mapped to the Willow Topology.
 
 Because we decouple the vision engine from the physics engine, you can feed Willow data from a $1,000 depth sensor on a robot, a Meta Quest 3 headset, or a mobile phone running a TFLite model.
 
-### 2. Scale-Invariant Topology: The RDM
-How does an action model trained on a 6'5" professional athlete perfectly match the movement of a 5'2" amateur? 
+### 2. Dual Spatial Engines: Universal vs. Physics
+When you pass a skeleton into the SDK, the `extract_rdm()` kernel converts the raw X, Y, Z coordinates into a **Relative Distance Matrix (RDM)**. The math routing depends on your model:
 
-When you pass a skeleton into the SDK, the `extract_rdm()` kernel converts the raw X, Y, Z coordinates into a **Relative Distance Matrix (RDM)**. 
-*   **Torso-Length Normalization:** The engine dynamically calculates the 3D distance between the midpoint of the shoulders (Indices 11, 12) and the midpoint of the hips (Indices 23, 24). 
-*   Every other distance in the body is divided by this Torso Length. 
-*   The result is a scale-invariant geometric "fingerprint." A hand moving to the shoulder looks mathematically identical regardless of the subject's absolute height.
+*   **Universal Models (Scale-Invariant):** The engine dynamically calculates the 3D distance between the shoulders and hips to establish Torso Length. Every other distance in the body is divided by this Torso Length. A hand moving to the shoulder looks mathematically identical regardless of the subject's absolute height.
+*   **Physics Models (Metric Space):** The normalization scaling is completely bypassed. The engine calculates absolute physical distances in meters. This mode natively supports Node 76 (Tracked Objects), allowing you to verify physical interactions between the human and their environment.
 
 ### 3. Continuous DTW & Non-Maximum Suppression (NMS)
 To achieve zero-latency action recognition, the SDK runs **Continuous Dynamic Time Warping (DTW)**. 
